@@ -37,10 +37,13 @@ services:
     container_name: nanobot-bridge
     command: channels login
     restart: unless-stopped
+    expose:
+      - "3001"
     volumes:
       - nanobot-data:/root/.nanobot
     environment:
       - TZ=${TZ:-UTC}
+      - BRIDGE_HOST=0.0.0.0
     # Only needed if you use WhatsApp. Comment out this entire service if not.
     profiles:
       - whatsapp

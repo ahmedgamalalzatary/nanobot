@@ -25,9 +25,10 @@ export class BridgeServer {
   constructor(private port: number, private authDir: string, private token?: string) {}
 
   async start(): Promise<void> {
-    // Bind to localhost only — never expose to external network
-    this.wss = new WebSocketServer({ host: '127.0.0.1', port: this.port });
-    console.log(`🌉 Bridge server listening on ws://127.0.0.1:${this.port}`);
+    // Bind to configured host (127.0.0.1 for local, 0.0.0.0 for Docker)
+    const host = process.env.BRIDGE_HOST || '127.0.0.1';
+    this.wss = new WebSocketServer({ host, port: this.port });
+    console.log(`🌉 Bridge server listening on ws://${host}:${this.port}`);
     if (this.token) console.log('🔒 Token authentication enabled');
 
     // Initialize WhatsApp client
