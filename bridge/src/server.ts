@@ -22,15 +22,17 @@ export class BridgeServer {
   private wa: WhatsAppClient | null = null;
   private clients: Set<WebSocket> = new Set();
 
-  constructor(private port: number, private authDir: string, private token?: string) {}
+  constructor(private port: number, private authDir: string, private token?: string) { }
 
   async start(): Promise<void> {
     // Bind to configured host (127.0.0.1 for local, 0.0.0.0 for Docker)
     const host = process.env.BRIDGE_HOST || '127.0.0.1';
+    if (host !== '127.0.0.1' && host !== 'localhost' && !this.token) {
+      console.warn('⚠️  WARNING: Server binding to non-loopback address without token authentication');
+    }
     this.wss = new WebSocketServer({ host, port: this.port });
     console.log(`🌉 Bridge server listening on ws://${host}:${this.port}`);
     if (this.token) console.log('🔒 Token authentication enabled');
-
     // Initialize WhatsApp client
     this.wa = new WhatsAppClient({
       authDir: this.authDir,

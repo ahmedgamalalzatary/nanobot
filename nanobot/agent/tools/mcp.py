@@ -33,6 +33,7 @@ class MCPToolWrapper(Tool):
 
     async def execute(self, **kwargs: Any) -> str:
         from mcp import types
+
         result = await self._session.call_tool(self._original_name, arguments=kwargs)
         parts = []
         for block in result.content:
@@ -59,9 +60,8 @@ async def connect_mcp_servers(
                 read, write = await stack.enter_async_context(stdio_client(params))
             elif cfg.url:
                 from mcp.client.streamable_http import streamable_http_client
-                read, write, _ = await stack.enter_async_context(
-                    streamable_http_client(cfg.url)
-                )
+
+                read, write, _ = await stack.enter_async_context(streamable_http_client(cfg.url))
             else:
                 logger.warning(f"MCP server '{name}': no command or url configured, skipping")
                 continue

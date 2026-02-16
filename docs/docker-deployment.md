@@ -230,10 +230,18 @@ Connection closed. Status: 440, Will reconnect: true
 
 **Fix:** This indicates a connection conflict. Clear auth data and re-scan QR code:
 ```bash
-docker compose -f deploy/docker-compose.yml down
-docker run --rm -v deploy_nanobot-data:/data alpine rm -rf /data/whatsapp-auth
+# Remove containers and volumes
+
+docker compose -f deploy/docker-compose.yml down -v
+
+# Alternatively, discover and remove the actual volume name
+# List volumes and find the actual volume name
+# docker volume ls | grep nanobot-data
+# docker volume rm <actual-volume-name>
 docker compose -f deploy/docker-compose.yml run --rm -it bridge channels login
 ```
+
+> Note: To ensure predictable volume names, you can explicitly set the project name using `docker compose -p <project>` when running commands.
 
 ### Config Changes Not Applied
 

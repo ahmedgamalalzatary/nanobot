@@ -6,7 +6,11 @@
 # Usage:
 #   1. Build:    docker compose build
 #   2. Init:     docker compose run --rm gateway onboard
-#   3. Config:   Edit ~/.nanobot/config.json
+#   3. Config:   Edit ~/.nanobot/config.json (when using the named volume 'nanobot-data', the config lives inside the container/volume, not on the host). Use the following command to edit/view the config:
+#               docker compose exec gateway vi /root/.nanobot/config.json
+#               or
+#               docker compose exec gateway cat /root/.nanobot/config.json
+#               Alternatively, consider using a bind-mount for direct access to the config on the host (see comments at bottom).
 #   4. Start:    docker compose up -d
 #   5. Logs:     docker compose logs -f
 #   6. Stop:     docker compose down
