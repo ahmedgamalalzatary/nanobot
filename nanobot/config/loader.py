@@ -93,12 +93,14 @@ def convert_to_camel(data: Any) -> Any:
 
 def camel_to_snake(name: str) -> str:
     """Convert camelCase to snake_case."""
-    result = []
-    for i, char in enumerate(name):
-        if char.isupper() and i > 0:
-            result.append("_")
-        result.append(char.lower())
-    return "".join(result)
+    import re
+
+    result = name
+    result = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", result)
+    result = re.sub(r"(?<=[a-zA-Z])(?=[0-9])", "_", result)
+    result = re.sub(r"(?<=[0-9])(?=[a-zA-Z])", "_", result)
+    result = re.sub(r"_+", "_", result)
+    return result.lower()
 
 
 def snake_to_camel(name: str) -> str:

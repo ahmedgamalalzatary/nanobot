@@ -44,19 +44,18 @@ class ToolRegistry:
             params: Tool parameters.
 
         Returns:
-            Tool execution result as string.
-
-        Raises:
-            KeyError: If tool not found.
+            Tool execution result as string, or error message if tool not found
+            or execution fails.
         """
         tool = self._tools.get(name)
         if not tool:
             return f"Error: Tool '{name}' not found"
 
+        errors = tool.validate_params(params)
+        if errors:
+            return f"Error: Invalid parameters for tool '{name}': " + "; ".join(errors)
+
         try:
-            errors = tool.validate_params(params)
-            if errors:
-                return f"Error: Invalid parameters for tool '{name}': " + "; ".join(errors)
             return await tool.execute(**params)
         except Exception as e:
             return f"Error executing {name}: {str(e)}"

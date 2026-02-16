@@ -1,10 +1,12 @@
 /**
  * WebSocket server for Python-Node.js bridge communication.
- * Security: binds to 127.0.0.1 only; optional BRIDGE_TOKEN auth.
+ * Security: host configurable via BRIDGE_HOST (defaults to 127.0.0.1);
+ * optional BRIDGE_TOKEN auth for non-loopback bindings.
  */
 
 import { WebSocketServer, WebSocket } from 'ws';
 import { WhatsAppClient, InboundMessage } from './whatsapp.js';
+import { timingSafeEqual } from 'crypto';
 
 interface SendCommand {
   type: 'send';
@@ -27,7 +29,8 @@ export class BridgeServer {
   async start(): Promise<void> {
     // Bind to configured host (127.0.0.1 for local, 0.0.0.0 for Docker)
     const host = process.env.BRIDGE_HOST || '127.0.0.1';
-    if (host !== '127.0.0.1' && host !== 'localhost' && !this.token) {
+    const isLoopback = (h: string) => h === '127.0.0.1' || h === 'localhost' || h === '::1';
+    if (!isLoopback(host) && !this.token) {
       console.warn('⚠️  WARNING: Server binding to non-loopback address without token authentication');
     }
     this.wss = new WebSocketServer({ host, port: this.port });
@@ -50,7 +53,9 @@ export class BridgeServer {
           clearTimeout(timeout);
           try {
             const msg = JSON.parse(data.toString());
-            if (msg.type === 'auth' && msg.token === this.token) {
+            if (msg.type === 'auth' && typeof msg.token === 'string' &&
+              msg.token.length === this.token.length &&
+              timingSafeEqual(Buffer.from(msg.token), Buffer.from(this.token!))) {
               console.log('🔗 Python client authenticated');
               this.setupClient(ws);
             } else {

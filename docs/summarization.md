@@ -165,7 +165,7 @@ User-configurable agent behavior:
 
 ## Data Flow Summary
 
-```
+```text
 User Message (Telegram/Discord/etc.)
     ↓
     Channel Implementation

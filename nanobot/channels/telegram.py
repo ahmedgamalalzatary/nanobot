@@ -138,12 +138,18 @@ class TelegramChannel(BaseChannel):
 
         self._running = True
 
-        # Build the application with larger connection pool to avoid pool-timeout on long runs
+        # Build the application with separate connection pools for API calls and getUpdates
         req = HTTPXRequest(
             connection_pool_size=16, pool_timeout=5.0, connect_timeout=30.0, read_timeout=30.0
         )
+        req_updates = HTTPXRequest(
+            connection_pool_size=4, pool_timeout=30.0, connect_timeout=30.0, read_timeout=60.0
+        )
         builder = (
-            Application.builder().token(self.config.token).request(req).get_updates_request(req)
+            Application.builder()
+            .token(self.config.token)
+            .request(req)
+            .get_updates_request(req_updates)
         )
         if self.config.proxy:
             builder = builder.proxy(self.config.proxy).get_updates_proxy(self.config.proxy)
@@ -322,15 +328,19 @@ class TelegramChannel(BaseChannel):
                 media_paths.append(str(file_path))
 
                 # Handle voice transcription
-                if media_type == "voice" or media_type == "audio":
-                    from nanobot.providers.transcription import GroqTranscriptionProvider
+                if media_type in ("voice", "audio"):
+                    try:
+                        from nanobot.providers.transcription import GroqTranscriptionProvider
 
-                    transcriber = GroqTranscriptionProvider(api_key=self.groq_api_key)
-                    transcription = await transcriber.transcribe(file_path)
-                    if transcription:
-                        logger.info(f"Transcribed {media_type}: {transcription[:50]}...")
-                        content_parts.append(f"[transcription: {transcription}]")
-                    else:
+                        transcriber = GroqTranscriptionProvider(api_key=self.groq_api_key)
+                        transcription = await transcriber.transcribe(file_path)
+                        if transcription:
+                            logger.info(f"Transcribed {media_type}: {transcription[:50]}...")
+                            content_parts.append(f"[transcription: {transcription}]")
+                        else:
+                            content_parts.append(f"[{media_type}: {file_path}]")
+                    except Exception as te:
+                        logger.error(f"Transcription failed for {media_type}: {te}")
                         content_parts.append(f"[{media_type}: {file_path}]")
                 else:
                     content_parts.append(f"[{media_type}: {file_path}]")

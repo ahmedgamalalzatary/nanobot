@@ -133,7 +133,7 @@ docker compose -f deploy/docker-compose.yml logs gateway
 ```
 
 You should see:
-```
+```text
 ✓ Channels enabled: ...
 ✓ Heartbeat: every 30m
 ✓ Agent loop started
@@ -170,7 +170,7 @@ docker compose -f deploy/docker-compose.yml logs bridge
 ```
 
 You should see:
-```
+```text
 ✅ Connected to WhatsApp
 ```
 
@@ -269,14 +269,17 @@ docker compose -f deploy/docker-compose.yml restart
 2. **Clone and deploy** (follow steps above)
 
 3. **Open firewall port:**
-   ```bash
-   gcloud compute firewall-rules create allow-nanobot \
-     --allow tcp:18790 \
-     --source-ranges 0.0.0.0/0 \
-     --target-tags nanobot
+    ```bash
+    # WARNING: Replace YOUR_OFFICE_IP/32 with your trusted IP range!
+    # Opening to 0.0.0.0/0 exposes the service to the entire internet.
+    # Consider using a VPN, bastion host, or Cloud IAP instead.
+    gcloud compute firewall-rules create allow-nanobot \
+      --allow tcp:18790 \
+      --source-ranges YOUR_OFFICE_IP/32 \
+      --target-tags nanobot
 
-   gcloud compute instances add-tags YOUR_VM_NAME --tags=nanobot --zone=YOUR_ZONE
-   ```
+    gcloud compute instances add-tags YOUR_VM_NAME --tags=nanobot --zone=YOUR_ZONE
+    ```
 
 ### AWS EC2
 
