@@ -44,7 +44,7 @@ Slash commands work everywhere. Gateway detects "/" at the start of a message, c
 - Commands with arguments return success/failure state
 
 **Examples:**
-```
+```text
 /reasoning high        → "Reasoning level set to: high" (saved to config)
 /think on              → "Thinking display: on" (session only)
 /status                → Shows current state
@@ -81,21 +81,21 @@ Variables added to every response from the AI for message formatting.
 - If model doesn't support thinking levels, value is `off`
 
 **Format:**
-```
+```text
 thinking level: {thinkingLevel}
 
 [actual model response here]
 ```
 
 **Example Output:**
-```
+```text
 thinking level: high
 
 To solve this problem, I'll break it down into steps...
 ```
 
 **When `off`:**
-```
+```text
 thinking level: off
 
 Hello! How can I help you today?
@@ -246,6 +246,8 @@ Modern web interface to interact with the entire nanobot application. Dashboard 
 - Dashboard only accessible from localhost
 - No authentication needed (local endpoints only)
 - Single user (owner)
+
+**⚠️ Warning:** Localhost-only endpoints can be bypassed via DNS rebinding, reverse proxies, or container/network misconfigurations. Before any non-local or production deployment, implement proper authentication/authorization controls and validate proxy/binding configurations.
 
 ### Implementation Notes
 

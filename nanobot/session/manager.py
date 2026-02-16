@@ -134,6 +134,7 @@ class SessionManager:
         with open(path, "w") as f:
             metadata_line = {
                 "_type": "metadata",
+                "key": session.key,
                 "created_at": session.created_at.isoformat(),
                 "updated_at": session.updated_at.isoformat(),
                 "metadata": session.metadata,
@@ -160,7 +161,6 @@ class SessionManager:
 
         for path in self.sessions_dir.glob("*.jsonl"):
             try:
-                # Read just the metadata line
                 with open(path) as f:
                     first_line = f.readline().strip()
                     if first_line:
@@ -168,7 +168,9 @@ class SessionManager:
                         if data.get("_type") == "metadata":
                             sessions.append(
                                 {
-                                    "key": path.stem.replace("_", ":"),
+                                    "key": data.get("key")
+                                    or data.get("metadata", {}).get("key")
+                                    or path.stem.replace("_", ":"),
                                     "created_at": data.get("created_at"),
                                     "updated_at": data.get("updated_at"),
                                     "path": str(path),

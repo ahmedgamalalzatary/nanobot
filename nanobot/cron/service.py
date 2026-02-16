@@ -40,7 +40,10 @@ def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
             cron = croniter(schedule.expr, base_dt)
             next_dt = cron.get_next(datetime)
             return int(next_dt.timestamp() * 1000)
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                f"Failed to compute next run for cron expr '{schedule.expr}' tz='{schedule.tz}': {e}"
+            )
             return None
 
     return None
@@ -94,6 +97,7 @@ class CronService:
                                 last_run_at_ms=j.get("state", {}).get("lastRunAtMs"),
                                 last_status=j.get("state", {}).get("lastStatus"),
                                 last_error=j.get("state", {}).get("lastError"),
+                                last_response=j.get("state", {}).get("lastResponse"),
                             ),
                             created_at_ms=j.get("createdAtMs", 0),
                             updated_at_ms=j.get("updatedAtMs", 0),
@@ -142,6 +146,7 @@ class CronService:
                         "lastRunAtMs": j.state.last_run_at_ms,
                         "lastStatus": j.state.last_status,
                         "lastError": j.state.last_error,
+                        "lastResponse": j.state.last_response,
                     },
                     "createdAtMs": j.created_at_ms,
                     "updatedAtMs": j.updated_at_ms,

@@ -7,7 +7,7 @@ import os
 import re
 import socket
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -19,11 +19,14 @@ MAX_REDIRECTS = 5  # Limit redirects to prevent DoS attacks
 
 # Private IP ranges for SSRF protection
 PRIVATE_IP_RANGES = [
+    ipaddress.ip_network("0.0.0.0/8"),  # "This" network
     ipaddress.ip_network("127.0.0.0/8"),  # Loopback
     ipaddress.ip_network("10.0.0.0/8"),  # Private Class A
+    ipaddress.ip_network("100.64.0.0/10"),  # CGNAT
     ipaddress.ip_network("172.16.0.0/12"),  # Private Class B
     ipaddress.ip_network("192.168.0.0/16"),  # Private Class C
     ipaddress.ip_network("169.254.0.0/16"),  # Link-local
+    ipaddress.ip_network("::/128"),  # IPv6 unspecified
     ipaddress.ip_network("::1/128"),  # IPv6 loopback
     ipaddress.ip_network("fc00::/7"),  # IPv6 private
     ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
@@ -32,7 +35,6 @@ PRIVATE_IP_RANGES = [
 BLOCKED_HOSTNAMES = {
     "localhost",
     "metadata.google.internal",
-    "metadata.azure",
     "169.254.169.254",
 }
 
@@ -63,15 +65,18 @@ def _is_private_ip(ip_str: str) -> bool:
         return False
 
 
-def _resolve_hostname(hostname: str) -> str | None:
-    """Resolve a hostname to its IP address."""
+def _resolve_hostname(hostname: str) -> list[str]:
+    """Resolve a hostname to all its IP addresses."""
     try:
         result = socket.getaddrinfo(hostname, None)
-        if result:
-            return result[0][4][0]
+        ips = []
+        for r in result:
+            ip = r[4][0]
+            if ip not in ips:
+                ips.append(ip)
+        return ips
     except (socket.gaierror, socket.herror, OSError):
-        pass
-    return None
+        return []
 
 
 def _validate_url(url: str) -> tuple[bool, str]:
@@ -83,14 +88,22 @@ def _validate_url(url: str) -> tuple[bool, str]:
         if not p.netloc:
             return False, "Missing domain"
 
-        hostname = p.netloc.split(":")[0].lower()
+        hostname = p.hostname
+        if not hostname:
+            return False, "Missing hostname"
+
+        hostname = hostname.lower()
 
         if hostname in BLOCKED_HOSTNAMES:
             return False, f"Access to {hostname} is blocked"
 
-        ip = _resolve_hostname(hostname)
-        if ip and _is_private_ip(ip):
-            return False, f"Access to private/internal addresses is blocked"
+        ips = _resolve_hostname(hostname)
+        if not ips:
+            return False, "Could not resolve hostname"
+
+        for ip in ips:
+            if _is_private_ip(ip):
+                return False, "Access to private/internal addresses is blocked"
 
         return True, ""
     except Exception as e:
@@ -174,16 +187,13 @@ class WebFetchTool(Tool):
 
         max_chars = maxChars or self.max_chars
 
-        # Validate URL before fetching
         is_valid, error_msg = _validate_url(url)
         if not is_valid:
             return json.dumps({"error": f"URL validation failed: {error_msg}", "url": url})
 
         try:
-            async with httpx.AsyncClient(
-                follow_redirects=True, max_redirects=MAX_REDIRECTS, timeout=30.0
-            ) as client:
-                r = await client.get(url, headers={"User-Agent": USER_AGENT})
+            async with httpx.AsyncClient(follow_redirects=False, timeout=30.0) as client:
+                r = await self._fetch_with_redirect_validation(client, url)
                 r.raise_for_status()
 
             ctype = r.headers.get("content-type", "")
@@ -221,6 +231,30 @@ class WebFetchTool(Tool):
             )
         except Exception as e:
             return json.dumps({"error": str(e), "url": url})
+
+    async def _fetch_with_redirect_validation(
+        self, client: httpx.AsyncClient, url: str, redirect_count: int = 0
+    ) -> httpx.Response:
+        if redirect_count > MAX_REDIRECTS:
+            raise Exception(f"Too many redirects (max {MAX_REDIRECTS})")
+
+        r = await client.get(url, headers={"User-Agent": USER_AGENT})
+
+        if r.status_code in (301, 302, 303, 307, 308):
+            redirect_url = r.headers.get("location")
+            if not redirect_url:
+                raise Exception("Redirect response missing Location header")
+
+            resolved_url = urljoin(url, redirect_url)
+            is_valid, error_msg = _validate_url(resolved_url)
+            if not is_valid:
+                raise Exception(f"Redirect target validation failed: {error_msg}")
+
+            return await self._fetch_with_redirect_validation(
+                client, resolved_url, redirect_count + 1
+            )
+
+        return r
 
     def _to_markdown(self, html: str) -> str:
         """Convert HTML to markdown."""

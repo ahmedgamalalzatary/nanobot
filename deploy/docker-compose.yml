@@ -29,7 +29,7 @@ services:
       - nanobot-data:/root/.nanobot
     depends_on:
       bridge:
-        condition: service_started
+        condition: service_healthy
         required: false  # gateway works fine without bridge (non-WhatsApp channels)
     environment:
       - TZ=${TZ:-UTC}
@@ -48,6 +48,12 @@ services:
     environment:
       - TZ=${TZ:-UTC}
       - BRIDGE_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     # Only needed if you use WhatsApp. Comment out this entire service if not.
     profiles:
       - whatsapp

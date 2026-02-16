@@ -371,7 +371,7 @@ class FeishuChannel(BaseChannel):
                 return
             self._processed_message_ids[message_id] = None
 
-            # Trim cache: keep most recent 500 when exceeds 1000
+            # Trim cache to 1000 when exceeds 1000
             while len(self._processed_message_ids) > 1000:
                 self._processed_message_ids.popitem(last=False)
 

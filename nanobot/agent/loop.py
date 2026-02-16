@@ -23,11 +23,11 @@ from nanobot.agent.tools.spawn import SpawnTool
 from nanobot.agent.tools.web import WebFetchTool, WebSearchTool
 from nanobot.bus.events import InboundMessage, OutboundMessage
 from nanobot.bus.queue import MessageBus
+from nanobot.config.schema import ExecToolConfig
 from nanobot.providers.base import LLMProvider
 from nanobot.session.manager import Session, SessionManager
 
 if TYPE_CHECKING:
-    from nanobot.config.schema import ExecToolConfig
     from nanobot.cron.service import CronService
 
 
@@ -92,6 +92,7 @@ class AgentLoop:
         self._mcp_servers = mcp_servers or {}
         self._mcp_stack: AsyncExitStack | None = None
         self._mcp_connected = False
+        self._background_tasks: set[asyncio.Task] = set()
         self._register_default_tools()
 
     def _register_default_tools(self) -> None:
@@ -288,7 +289,9 @@ class AgentLoop:
                 temp_session.messages = messages_to_archive
                 await self._consolidate_memory(temp_session, archive_all=True)
 
-            asyncio.create_task(_consolidate_and_cleanup())
+            task = asyncio.create_task(_consolidate_and_cleanup())
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
@@ -302,7 +305,9 @@ class AgentLoop:
             )
 
         if len(session.messages) > self.memory_window:
-            asyncio.create_task(self._consolidate_memory(session))
+            task = asyncio.create_task(self._consolidate_memory(session))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
 
         self._set_tool_context(msg.channel, msg.chat_id)
         initial_messages = self.context.build_messages(
@@ -330,8 +335,7 @@ class AgentLoop:
             channel=msg.channel,
             chat_id=msg.chat_id,
             content=final_content,
-            metadata=msg.metadata
-            or {},  # Pass through for channel-specific needs (e.g. Slack thread_ts)
+            metadata=(msg.metadata or {}),
         )
 
     async def _process_system_message(self, msg: InboundMessage) -> OutboundMessage | None:

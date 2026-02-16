@@ -4,6 +4,10 @@ Documentation=https://github.com/HKUDS/nanobot
 After=network-online.target
 Wants=network-online.target
 
+# Give up after 5 consecutive failures within 30 seconds
+StartLimitIntervalSec=30
+StartLimitBurst=5
+
 # If you use WhatsApp, uncomment the next line so the bridge starts first:
 # Wants=nanobot-bridge.service
 # After=nanobot-bridge.service
@@ -27,10 +31,6 @@ Environment=HOME=/home/nanobot
 # Restart on crash, but not on clean stop (systemctl stop)
 Restart=on-failure
 RestartSec=5
-
-# Give up after 5 consecutive failures within 30 seconds
-StartLimitIntervalSec=30
-StartLimitBurst=5
 
 # Security hardening (optional but recommended)
 NoNewPrivileges=true
