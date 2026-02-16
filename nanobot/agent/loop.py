@@ -1,9 +1,12 @@
 """Agent loop: the core processing engine."""
 
+from __future__ import annotations
+
 import asyncio
 import json
 from contextlib import AsyncExitStack
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import json_repair
 from loguru import logger
@@ -22,7 +25,10 @@ from nanobot.bus.events import InboundMessage, OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.providers.base import LLMProvider
 from nanobot.session.manager import Session, SessionManager
-from nanobot.utils.prefix import format_prefix
+
+if TYPE_CHECKING:
+    from nanobot.config.schema import ExecToolConfig
+    from nanobot.cron.service import CronService
 
 
 class AgentLoop:
@@ -48,14 +54,12 @@ class AgentLoop:
         max_tokens: int = 4096,
         memory_window: int = 50,
         brave_api_key: str | None = None,
-        exec_config: "ExecToolConfig | None" = None,
-        cron_service: "CronService | None" = None,
+        exec_config: ExecToolConfig | None = None,
+        cron_service: CronService | None = None,
         restrict_to_workspace: bool = False,
         session_manager: SessionManager | None = None,
         mcp_servers: dict | None = None,
     ):
-        from nanobot.config.schema import ExecToolConfig
-
         self.bus = bus
         self.provider = provider
         self.workspace = workspace
@@ -222,12 +226,12 @@ class AgentLoop:
                     if response:
                         await self.bus.publish_outbound(response)
                 except Exception as e:
-                    logger.error(f"Error processing message: {e}")
+                    logger.error(f"Error processing message: {e}", exc_info=True)
                     await self.bus.publish_outbound(
                         OutboundMessage(
                             channel=msg.channel,
                             chat_id=msg.chat_id,
-                            content=f"Sorry, I encountered an error: {str(e)}",
+                            content="Sorry, I encountered an internal error. Please try again.",
                         )
                     )
             except asyncio.TimeoutError:
@@ -312,9 +316,6 @@ class AgentLoop:
 
         if final_content is None:
             final_content = "I've completed processing but have no response to give."
-
-        prefix = format_prefix(self.model) or ""
-        final_content = prefix + final_content
 
         preview = final_content[:120] + "..." if len(final_content) > 120 else final_content
         logger.info(f"Response to {msg.channel}:{msg.sender_id}: {preview}")

@@ -280,7 +280,6 @@ class FeishuChannel(BaseChannel):
             before = protected[last_end : m.start()].strip()
             if before:
                 elements.append({"tag": "markdown", "content": before})
-            level = len(m.group(1))
             text = m.group(2).strip()
             elements.append(
                 {

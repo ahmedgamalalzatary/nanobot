@@ -238,6 +238,7 @@ class CronService:
 
             job.state.last_status = "ok"
             job.state.last_error = None
+            job.state.last_response = response[:500] if response else None
             logger.info(f"Cron: job '{job.name}' completed")
 
         except Exception as e:

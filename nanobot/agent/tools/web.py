@@ -1,9 +1,11 @@
 """Web tools: web_search and web_fetch."""
 
 import html
+import ipaddress
 import json
 import os
 import re
+import socket
 from typing import Any
 from urllib.parse import urlparse
 
@@ -14,6 +16,25 @@ from nanobot.agent.tools.base import Tool
 # Shared constants
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_2) AppleWebKit/537.36"
 MAX_REDIRECTS = 5  # Limit redirects to prevent DoS attacks
+
+# Private IP ranges for SSRF protection
+PRIVATE_IP_RANGES = [
+    ipaddress.ip_network("127.0.0.0/8"),  # Loopback
+    ipaddress.ip_network("10.0.0.0/8"),  # Private Class A
+    ipaddress.ip_network("172.16.0.0/12"),  # Private Class B
+    ipaddress.ip_network("192.168.0.0/16"),  # Private Class C
+    ipaddress.ip_network("169.254.0.0/16"),  # Link-local
+    ipaddress.ip_network("::1/128"),  # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),  # IPv6 private
+    ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
+]
+
+BLOCKED_HOSTNAMES = {
+    "localhost",
+    "metadata.google.internal",
+    "metadata.azure",
+    "169.254.169.254",
+}
 
 
 def _strip_tags(text: str) -> str:
@@ -30,14 +51,47 @@ def _normalize(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
+def _is_private_ip(ip_str: str) -> bool:
+    """Check if an IP address is private/internal."""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        for network in PRIVATE_IP_RANGES:
+            if ip in network:
+                return True
+        return False
+    except ValueError:
+        return False
+
+
+def _resolve_hostname(hostname: str) -> str | None:
+    """Resolve a hostname to its IP address."""
+    try:
+        result = socket.getaddrinfo(hostname, None)
+        if result:
+            return result[0][4][0]
+    except (socket.gaierror, socket.herror, OSError):
+        pass
+    return None
+
+
 def _validate_url(url: str) -> tuple[bool, str]:
-    """Validate URL: must be http(s) with valid domain."""
+    """Validate URL: must be http(s) with valid domain and not private IP."""
     try:
         p = urlparse(url)
         if p.scheme not in ("http", "https"):
             return False, f"Only http/https allowed, got '{p.scheme or 'none'}'"
         if not p.netloc:
             return False, "Missing domain"
+
+        hostname = p.netloc.split(":")[0].lower()
+
+        if hostname in BLOCKED_HOSTNAMES:
+            return False, f"Access to {hostname} is blocked"
+
+        ip = _resolve_hostname(hostname)
+        if ip and _is_private_ip(ip):
+            return False, f"Access to private/internal addresses is blocked"
+
         return True, ""
     except Exception as e:
         return False, str(e)
