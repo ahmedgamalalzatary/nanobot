@@ -18,7 +18,19 @@ def _now_ms() -> int:
 
 
 def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
-    """Compute next run time in ms."""
+    """
+    Compute the next scheduled run time in milliseconds for the given schedule.
+    
+    Parameters:
+        schedule (CronSchedule): Schedule object describing when the job should run. Supported kinds:
+            - "at": a one-time run at `schedule.at_ms`.
+            - "every": a repeating interval defined by `schedule.every_ms`.
+            - "cron": a cron expression in `schedule.expr` with optional timezone `schedule.tz`.
+        now_ms (int): Current time in milliseconds since the epoch used as the reference point.
+    
+    Returns:
+        int | None: The timestamp in milliseconds of the next run if one can be determined, `None` otherwise.
+    """
     if schedule.kind == "at":
         return schedule.at_ms if schedule.at_ms and schedule.at_ms > now_ms else None
 
@@ -64,7 +76,17 @@ class CronService:
         self._running = False
 
     def _load_store(self) -> CronStore:
-        """Load jobs from disk."""
+        """
+        Load and cache the cron job store from disk.
+        
+        If the configured store file exists, parse its JSON contents and construct a CronStore
+        containing CronJob entries (including schedules, payloads, and job state). On success,
+        cache the loaded store on the instance and return it. If the file does not exist or
+        parsing/processing fails, initialize, cache, and return an empty CronStore; failures
+        are logged as a warning.
+        Returns:
+            CronStore: The loaded (or newly initialized) cron store instance.
+        """
         if self._store:
             return self._store
 
@@ -114,7 +136,11 @@ class CronService:
         return self._store
 
     def _save_store(self) -> None:
-        """Save jobs to disk."""
+        """
+        Persist the in-memory CronStore to disk as a JSON file.
+        
+        If there is no loaded store, the method returns without writing. The method ensures the parent directory of the configured store path exists, serializes the store (including version and each job's id, name, enabled flag, schedule, payload, state — notably `lastResponse` — timestamps, and deleteAfterRun) and writes the JSON to `self.store_path`.
+        """
         if not self._store:
             return
 

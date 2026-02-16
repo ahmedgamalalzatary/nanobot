@@ -37,15 +37,14 @@ class ToolRegistry:
 
     async def execute(self, name: str, params: dict[str, Any]) -> str:
         """
-        Execute a tool by name with given parameters.
-
-        Args:
-            name: Tool name.
-            params: Tool parameters.
-
+        Execute a registered tool by name using the provided parameters.
+        
+        Parameters:
+            name (str): The registered tool's name.
+            params (dict[str, Any]): Keyword arguments to pass to the tool's execution; these will be validated by the tool.
+        
         Returns:
-            Tool execution result as string, or error message if tool not found
-            or execution fails.
+            str: The tool's result, or an error message beginning with "Error:" if the tool is not found, parameter validation fails, or an exception occurs during execution.
         """
         tool = self._tools.get(name)
         if not tool:

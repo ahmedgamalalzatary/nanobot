@@ -77,6 +77,18 @@ class CronTool(Tool):
     def _add_job(
         self, message: str, every_seconds: int | None, cron_expr: str | None, at: str | None
     ) -> str:
+        """
+        Add a scheduled job to deliver the given message according to one of the supported scheduling options.
+        
+        Parameters:
+            message (str): The message text to deliver; required.
+            every_seconds (int | None): If provided, schedules a recurring job that runs every this many seconds.
+            cron_expr (str | None): If provided, schedules a job using the given cron expression.
+            at (str | None): If provided, schedules a one-time job at the given ISO 8601 datetime string.
+        
+        Returns:
+            str: A confirmation string with the created job's name and id on success, or an error string describing why the job was not created (e.g., missing message, missing session context, invalid datetime, or missing scheduling option).
+        """
         if not message:
             return "Error: message is required for add"
         if not self._channel or not self._chat_id:

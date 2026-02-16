@@ -92,7 +92,16 @@ def convert_to_camel(data: Any) -> Any:
 
 
 def camel_to_snake(name: str) -> str:
-    """Convert camelCase to snake_case."""
+    """
+    Convert a camelCase or mixed alphanumeric identifier to snake_case.
+    
+    This inserts underscores at transitions from lowercase letters or digits to uppercase letters,
+    between letters and digits, and between digits and letters, collapses consecutive underscores,
+    and returns the result in all lowercase.
+    
+    Returns:
+        str: The input converted to snake_case.
+    """
     import re
 
     result = name

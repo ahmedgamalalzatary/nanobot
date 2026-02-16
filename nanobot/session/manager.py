@@ -128,7 +128,14 @@ class SessionManager:
             return None
 
     def save(self, session: Session) -> None:
-        """Save a session to disk."""
+        """
+        Persist the given Session to its JSONL file on disk and update the in-memory cache.
+        
+        Writes a metadata JSON object as the first line (including the session key, creation and update timestamps, metadata, and last_consolidated) followed by each session message as individual JSON lines in the file determined by the session key.
+        
+        Parameters:
+            session (Session): The session to persist; its messages and metadata are written to disk and the session is stored in the manager's cache.
+        """
         path = self._get_session_path(session.key)
 
         with open(path, "w") as f:
@@ -152,10 +159,14 @@ class SessionManager:
 
     def list_sessions(self) -> list[dict[str, Any]]:
         """
-        List all sessions.
-
+        List stored sessions with basic metadata.
+        
         Returns:
-            List of session info dicts.
+            A list of dictionaries, each representing a session with the keys:
+            - `key`: session identifier
+            - `created_at`: session creation timestamp (if available)
+            - `updated_at`: session last-updated timestamp (if available)
+            - `path`: filesystem path to the session file
         """
         sessions = []
 

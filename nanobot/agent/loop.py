@@ -60,6 +60,30 @@ class AgentLoop:
         session_manager: SessionManager | None = None,
         mcp_servers: dict | None = None,
     ):
+        """
+        Initialize the AgentLoop, configure runtime parameters, and create core collaborators (context builder, session manager, tool registry, subagent manager) and internal runtime state.
+        
+        Parameters:
+            bus (MessageBus): Message transport used for inbound/outbound communication.
+            provider (LLMProvider): LLM provider used for chat completions and memory consolidation.
+            workspace (Path): Filesystem path used for session and memory persistence.
+            model (str | None): Model identifier to use; falls back to provider default when None.
+            max_iterations (int): Maximum iterations for the agent's internal reasoning loop.
+            temperature (float): Sampling temperature for the LLM.
+            max_tokens (int): Maximum token budget for LLM requests.
+            memory_window (int): Number of recent messages to keep in short-term session memory before consolidation.
+            brave_api_key (str | None): Optional API key for web search/fetch tools.
+            exec_config (ExecToolConfig | None): Configuration for shell execution tool; a default is created when None.
+            cron_service (CronService | None): Optional cron service used to enable the cron tool.
+            restrict_to_workspace (bool): When true, tools that access the filesystem or execute processes are restricted to the workspace.
+            session_manager (SessionManager | None): Optional session manager; a new SessionManager is created when None.
+            mcp_servers (dict | None): Optional configuration for MCP servers; used to lazily connect to MCP when provided.
+        
+        Side effects:
+            - Instantiates and assigns ContextBuilder, SessionManager (or provided), ToolRegistry, and SubagentManager.
+            - Initializes internal runtime flags and MCP connection state.
+            - Creates a background task tracking set and registers default tools.
+        """
         self.bus = bus
         self.provider = provider
         self.workspace = workspace
@@ -96,7 +120,17 @@ class AgentLoop:
         self._register_default_tools()
 
     def _register_default_tools(self) -> None:
-        """Register the default set of tools."""
+        """
+        Register the default set of tools used by the agent.
+        
+        This registers:
+        - File tools (ReadFileTool, WriteFileTool, EditFileTool, ListDirTool) with access restricted to the workspace when workspace restriction is enabled.
+        - ExecTool configured with the agent workspace as working directory, the configured execution timeout, and the workspace-restriction flag.
+        - WebSearchTool initialized with the Brave API key (if provided) and WebFetchTool.
+        - MessageTool wired to publish outbound messages via the bus.
+        - SpawnTool wired to the SubagentManager for spawning subagents.
+        - CronTool when a cron service is configured.
+        """
         # File tools (restrict to workspace if configured)
         allowed_dir = self.workspace if self.restrict_to_workspace else None
         self.tools.register(ReadFileTool(allowed_dir=allowed_dir))
@@ -256,14 +290,16 @@ class AgentLoop:
         self, msg: InboundMessage, session_key: str | None = None
     ) -> OutboundMessage | None:
         """
-        Process a single inbound message.
-
-        Args:
-            msg: The inbound message to process.
-            session_key: Override session key (used by process_direct).
-
+        Process an inbound message and produce an outbound response when appropriate.
+        
+        System-originated messages are handled via the system processing path. Special slash commands (e.g. "/new", "/help") are handled synchronously; longer-running memory consolidation may be scheduled in the background.
+        
+        Parameters:
+            msg: InboundMessage containing content, channel, chat_id, sender, and optional metadata/media used for routing and context.
+            session_key: Optional override for the session key (used by process_direct to target a specific session).
+        
         Returns:
-            The response message, or None if no response needed.
+            An OutboundMessage to send in response, or `None` if no response is required.
         """
         # System messages route back via chat_id ("channel:chat_id")
         if msg.channel == "system":
@@ -285,6 +321,13 @@ class AgentLoop:
             self.sessions.invalidate(session.key)
 
             async def _consolidate_and_cleanup():
+                """
+                Archive the current session's messages to long-term memory and trigger cleanup.
+                
+                Creates a temporary session containing the messages to archive and runs the memory
+                consolidation routine with `archive_all=True`, causing the session's history to
+                be written into persistent memory and old messages to be cleared.
+                """
                 temp_session = Session(key=session.key)
                 temp_session.messages = messages_to_archive
                 await self._consolidate_memory(temp_session, archive_all=True)
@@ -340,10 +383,15 @@ class AgentLoop:
 
     async def _process_system_message(self, msg: InboundMessage) -> OutboundMessage | None:
         """
-        Process a system message (e.g., subagent announce).
-
-        The chat_id field contains "original_channel:original_chat_id" to route
-        the response back to the correct destination.
+        Handle a system-originated inbound message and route the agent's response back to the originating channel.
+        
+        Builds or loads the session for the origin (extracted from `msg.chat_id` as "channel:chat_id"), sets tool routing context, constructs the conversation context, and runs the agent loop to produce a response. If the agent loop produces no content, a default "Background task completed." message is used. The resulting assistant reply is saved to session history.
+        
+        Parameters:
+            msg (InboundMessage): The incoming system message. Its `chat_id` may be formatted as "channel:chat_id" to indicate the destination for the response.
+        
+        Returns:
+            OutboundMessage | None: An OutboundMessage addressed to the extracted origin channel and chat_id containing the assistant's reply, or `None` if no outbound message is produced.
         """
         logger.info(f"Processing system message from {msg.sender_id}")
 

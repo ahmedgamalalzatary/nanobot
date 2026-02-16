@@ -131,7 +131,11 @@ class TelegramChannel(BaseChannel):
         self._typing_tasks: dict[str, asyncio.Task] = {}  # chat_id -> typing loop task
 
     async def start(self) -> None:
-        """Start the Telegram bot with long polling."""
+        """
+        Start the Telegram bot and begin long-polling for updates.
+        
+        Initializes and starts the telegram Application, registers error, command, and message handlers, configures separate HTTP request pools (and proxy if configured), attempts to register the bot command menu, starts update polling (dropping pending updates on startup), and then keeps the channel running until stopped.
+        """
         if not self.config.token:
             logger.error("Telegram bot token not configured")
             return
@@ -271,7 +275,18 @@ class TelegramChannel(BaseChannel):
         )
 
     async def _on_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle incoming messages (text, photos, voice, documents)."""
+        """
+        Process an incoming Telegram update: extract text/caption, handle and store media, attempt transcription for voice/audio, and forward a composed message to the message bus.
+        
+        This method:
+        - Records the sender's chat_id for future replies.
+        - Collects message text and caption and appends media references or transcriptions to the content.
+        - Downloads attached media to the local workspace (~/.nanobot/media) and includes saved file paths in the forwarded metadata.
+        - Attempts transcription for voice and audio attachments using the configured Groq transcription provider; if transcription fails or is unavailable, a file reference is appended instead.
+        - Starts a typing indicator for the chat and forwards the final content, media list, and metadata (message_id, user_id, username, first_name, and is_group) to the channel's message handling pipeline.
+        
+        No value is returned.
+        """
         if not update.message or not update.effective_user:
             return
 

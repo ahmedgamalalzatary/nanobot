@@ -89,7 +89,18 @@ class WhatsAppChannel(BaseChannel):
             logger.error(f"Error sending WhatsApp message: {e}")
 
     async def _handle_bridge_message(self, raw: str) -> None:
-        """Handle a message from the bridge."""
+        """
+        Process a raw JSON message received from the WhatsApp bridge.
+        
+        Parses the incoming JSON payload and dispatches by its `type` field:
+        - `message`: extracts sender and chat identifiers, normalizes `sender_id`, replaces voice messages with a transcription placeholder when necessary, and forwards the content and metadata to the channel message handler.
+        - `status`: updates the channel's connection state when `status` is `"connected"` or `"disconnected"`.
+        - `qr`: emits an instruction to scan the bridge QR code.
+        - `error`: logs the bridge error message.
+        
+        Parameters:
+            raw (str): Raw JSON string received from the bridge.
+        """
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:

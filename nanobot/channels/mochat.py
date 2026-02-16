@@ -102,7 +102,25 @@ def _make_synthetic_event(
     *,
     author_info: Any = None,
 ) -> dict[str, Any]:
-    """Build a synthetic ``message.add`` event dict."""
+    """
+    Create a synthetic "message.add" event dictionary representing an inbound message.
+    
+    Parameters:
+        message_id (str): Unique identifier for the message.
+        author (str): Author identifier (usually user ID).
+        content (Any): Message content payload; may be a string or structured object.
+        meta (Any): Metadata associated with the message; converted to a dict if possible.
+        group_id (str): Group identifier the message belongs to, or empty string.
+        converse_id (str): Conversation identifier (panel/session) associated with the message.
+        timestamp (Any, optional): ISO timestamp string to use for the event; if omitted, the current UTC time in ISO 8601 format with offset is used.
+        author_info (Any, optional): Additional author information; converted to a dict if possible and included as `authorInfo` in the payload.
+    
+    Returns:
+        dict: Event dictionary with keys:
+            - `type`: always "message.add"
+            - `timestamp`: ISO 8601 timestamp string
+            - `payload`: dict containing `messageId`, `author`, `content`, `meta`, `groupId`, `converseId`, and optional `authorInfo`
+    """
     payload: dict[str, Any] = {
         "messageId": message_id,
         "author": author,
@@ -939,6 +957,16 @@ class MochatChannel(BaseChannel):
                     self._session_cursor[sid] = cur
 
     async def _save_session_cursors(self) -> None:
+        """
+        Persist the in-memory session cursor map to the channel's state directory.
+        
+        Writes a JSON file at the channel's cursor path containing:
+        - `schemaVersion`: 1
+        - `updatedAt`: current UTC timestamp in ISO 8601 format with timezone offset
+        - `cursors`: the `_session_cursor` mapping
+        
+        The method ensures the state directory exists before writing. On failure it logs a warning and does not raise.
+        """
         try:
             self._state_dir.mkdir(parents=True, exist_ok=True)
             self._cursor_path.write_text(

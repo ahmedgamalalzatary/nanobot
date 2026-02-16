@@ -359,7 +359,14 @@ class FeishuChannel(BaseChannel):
             asyncio.run_coroutine_threadsafe(self._on_message(data), self._loop)
 
     async def _on_message(self, data: "P2ImMessageReceiveV1") -> None:
-        """Handle incoming message from Feishu."""
+        """
+        Handle an incoming Feishu p2_im_message_receive_v1 event and forward a processed message to the internal message bus.
+        
+        Processes the event by deduplicating messages, ignoring bot-sent messages, adding a THUMBSUP reaction to indicate the message was seen, extracting readable content (supports `text` and rich `post` content; maps other types to placeholder labels), and dispatching the resulting message to the internal handler with metadata (message_id, chat_type, msg_type). Messages with empty extracted content are ignored. All exceptions during processing are caught and logged.
+        
+        Parameters:
+            data (P2ImMessageReceiveV1): The raw event payload received from Feishu via WebSocket.
+        """
         try:
             event = data.event
             message = event.message

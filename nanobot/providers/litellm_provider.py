@@ -111,17 +111,17 @@ class LiteLLMProvider(LLMProvider):
         temperature: float = 0.7,
     ) -> LLMResponse:
         """
-        Send a chat completion request via LiteLLM.
-
-        Args:
-            messages: List of message dicts with 'role' and 'content'.
-            tools: Optional list of tool definitions in OpenAI format.
-            model: Model identifier (e.g., 'anthropic/claude-sonnet-4-5').
-            max_tokens: Maximum tokens in response.
-            temperature: Sampling temperature.
-
+        Send a chat completion request through LiteLLM and return a normalized LLMResponse.
+        
+        Parameters:
+        	messages (list[dict[str, Any]]): Sequence of message objects (each typically contains 'role' and 'content').
+        	tools (list[dict[str, Any]] | None): Optional tools in OpenAI-style format to enable tool-using responses.
+        	model (str | None): Model identifier to use; when None the provider's default model is used.
+        	max_tokens (int): Maximum tokens for the response; values less than 1 are treated as 1.
+        	temperature (float): Sampling temperature controlling response randomness.
+        
         Returns:
-            LLMResponse with content and/or tool calls.
+        	LLMResponse: Structured response including generated content, any parsed tool calls, finish reason, usage, and optional chain-of-thought reasoning content.
         """
         model = self._resolve_model(model or self.default_model)
 
@@ -162,7 +162,15 @@ class LiteLLMProvider(LLMProvider):
             raise
 
     def _parse_response(self, response: Any) -> LLMResponse:
-        """Parse LiteLLM response into our standard format."""
+        """
+        Convert a LiteLLM response object into an LLMResponse.
+        
+        Parameters:
+            response (Any): LiteLLM response object expected to contain at least a first choice with a message; may include `usage` and `tool_calls`.
+        
+        Returns:
+            LLMResponse: Structured response containing `content`, parsed `tool_calls` (as ToolCallRequest list), `finish_reason` (defaults to "stop"), `usage` dictionary with token counts if present, and `reasoning_content` when available.
+        """
         choice = response.choices[0]
         message = choice.message
 

@@ -54,7 +54,15 @@ def _normalize(text: str) -> str:
 
 
 def _is_private_ip(ip_str: str) -> bool:
-    """Check if an IP address is private/internal."""
+    """
+    Determine whether the given IP address string refers to a private/internal network.
+    
+    Parameters:
+        ip_str (str): IP address in textual form (IPv4 or IPv6).
+    
+    Returns:
+        bool: `True` if `ip_str` parses as an IP address that is contained in the module's PRIVATE_IP_RANGES; `False` if it is not contained or if `ip_str` is not a valid IP address.
+    """
     try:
         ip = ipaddress.ip_address(ip_str)
         for network in PRIVATE_IP_RANGES:
@@ -66,7 +74,16 @@ def _is_private_ip(ip_str: str) -> bool:
 
 
 def _resolve_hostname(hostname: str) -> list[str]:
-    """Resolve a hostname to all its IP addresses."""
+    """
+    Resolve a hostname to all associated IP address strings.
+    
+    Parameters:
+        hostname (str): The hostname or domain name to resolve.
+    
+    Returns:
+        list[str]: A list of unique IP address strings (IPv4/IPv6) associated with the hostname.
+                   Returns an empty list if the hostname cannot be resolved or an error occurs.
+    """
     try:
         result = socket.getaddrinfo(hostname, None)
         ips = []
@@ -80,7 +97,14 @@ def _resolve_hostname(hostname: str) -> list[str]:
 
 
 def _validate_url(url: str) -> tuple[bool, str]:
-    """Validate URL: must be http(s) with valid domain and not private IP."""
+    """
+    Validate that a URL is permitted for fetching.
+    
+    Performs these checks: the scheme is "http" or "https"; a hostname is present; the hostname is not in the blocked hostnames set; the hostname resolves to one or more IP addresses; and none of the resolved IPs are in configured private/internal ranges. On unexpected errors during validation, returns the error message.
+    
+    Returns:
+        (bool, str): `(True, "")` if the URL passes all checks; otherwise `(False, "<error message>")`.
+    """
     try:
         p = urlparse(url)
         if p.scheme not in ("http", "https"):
@@ -183,6 +207,27 @@ class WebFetchTool(Tool):
     async def execute(
         self, url: str, extractMode: str = "markdown", maxChars: int | None = None, **kwargs: Any
     ) -> str:
+        """
+        Fetches a URL, extracts readable content according to the requested mode, and returns a JSON-formatted string with metadata and the extracted text.
+        
+        Parameters:
+            url (str): The URL to fetch; validated against host/IP policies before fetching.
+            extractMode (str): "markdown" to convert HTML to Markdown via readability + internal converter, "text" to extract plain text. Defaults to "markdown".
+            maxChars (int | None): Maximum number of characters to include in the returned text; if None, the tool's default max is used.
+        
+        Returns:
+            str: A JSON string containing:
+                - url: the original requested URL
+                - finalUrl: the final location after validated redirects
+                - status: HTTP status code of the final response
+                - extractor: one of "readability", "json", or "raw" indicating how content was extracted
+                - truncated: `true` if the returned text was cut to fit `maxChars`, `false` otherwise
+                - length: length of the returned text in characters
+                - text: the extracted content (Markdown/plain/JSON/raw)
+            If URL validation fails or an exception occurs, returns a JSON string with keys:
+                - error: error message
+                - url: the original requested URL
+        """
         from readability import Document
 
         max_chars = maxChars or self.max_chars
@@ -235,6 +280,26 @@ class WebFetchTool(Tool):
     async def _fetch_with_redirect_validation(
         self, client: httpx.AsyncClient, url: str, redirect_count: int = 0
     ) -> httpx.Response:
+        """
+        Follow redirects for the given URL up to MAX_REDIRECTS while validating each redirect target.
+        
+        Performs a GET using the provided httpx.AsyncClient and, if a redirect status is returned (301, 302, 303, 307, 308),
+        validates the Location header with _validate_url and recursively follows the redirect. Returns the final httpx.Response
+        for a non-redirect response.
+        
+        Parameters:
+            client (httpx.AsyncClient): Async HTTP client used to perform requests.
+            url (str): Initial URL to fetch.
+            redirect_count (int): Current redirect depth (used internally).
+        
+        Returns:
+            httpx.Response: The response for the final (non-redirect) URL.
+        
+        Raises:
+            Exception: If the redirect depth exceeds MAX_REDIRECTS.
+            Exception: If a redirect response is missing a Location header.
+            Exception: If _validate_url rejects a redirect target (includes validation error message).
+        """
         if redirect_count > MAX_REDIRECTS:
             raise Exception(f"Too many redirects (max {MAX_REDIRECTS})")
 
@@ -256,7 +321,17 @@ class WebFetchTool(Tool):
         return r
 
     def _to_markdown(self, html: str) -> str:
-        """Convert HTML to markdown."""
+        """
+        Convert HTML to a lightweight Markdown-like plain text representation.
+        
+        Performs targeted conversions for links, headings, list items, paragraph/div breaks, and line breaks, then strips remaining HTML and normalizes whitespace.
+        
+        Parameters:
+            html (str): HTML content to convert.
+        
+        Returns:
+            markdown_text (str): Plain-text string with simple Markdown-style constructs (e.g., `[text](url)`, `#` headings, `-` list items) and normalized whitespace.
+        """
         # Convert links, headings, lists before stripping tags
         text = re.sub(
             r'<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>([\s\S]*?)</a>',
