@@ -53,9 +53,11 @@ export class BridgeServer {
           clearTimeout(timeout);
           try {
             const msg = JSON.parse(data.toString());
+            const tokenBuf = Buffer.from(msg.token ?? '');
+            const expectedBuf = Buffer.from(this.token!);
             if (msg.type === 'auth' && typeof msg.token === 'string' &&
-              msg.token.length === this.token.length &&
-              timingSafeEqual(Buffer.from(msg.token), Buffer.from(this.token!))) {
+              tokenBuf.length === expectedBuf.length &&
+              timingSafeEqual(tokenBuf, expectedBuf)) {
               console.log('🔗 Python client authenticated');
               this.setupClient(ws);
             } else {

@@ -166,10 +166,11 @@ class SessionManager:
                     if first_line:
                         data = json.loads(first_line)
                         if data.get("_type") == "metadata":
-                            metadata = data.get("metadata", {})
                             sessions.append(
                                 {
-                                    "key": metadata.get("key") or path.stem.replace("_", ":"),
+                                    "key": data.get("key")
+                                    or data.get("metadata", {}).get("key")
+                                    or path.stem.replace("_", ":"),
                                     "created_at": data.get("created_at"),
                                     "updated_at": data.get("updated_at"),
                                     "path": str(path),

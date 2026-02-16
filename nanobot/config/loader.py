@@ -1,6 +1,7 @@
 """Configuration loading utilities."""
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -93,7 +94,6 @@ def convert_to_camel(data: Any) -> Any:
 
 def camel_to_snake(name: str) -> str:
     """Convert camelCase to snake_case."""
-    import re
 
     result = name
     result = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", result)

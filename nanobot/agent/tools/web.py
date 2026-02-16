@@ -7,7 +7,7 @@ import os
 import re
 import socket
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -84,7 +84,7 @@ def _validate_url(url: str) -> tuple[bool, str]:
     try:
         p = urlparse(url)
         if p.scheme not in ("http", "https"):
-            return False, f"Only http/https allowed, got '{p.scheme or 'none'}"
+            return False, f"Only http/https allowed, got '{p.scheme or 'none'}'"
         if not p.netloc:
             return False, "Missing domain"
 
@@ -103,7 +103,7 @@ def _validate_url(url: str) -> tuple[bool, str]:
 
         for ip in ips:
             if _is_private_ip(ip):
-                return False, f"Access to private/internal addresses is blocked"
+                return False, "Access to private/internal addresses is blocked"
 
         return True, ""
     except Exception as e:
@@ -245,12 +245,13 @@ class WebFetchTool(Tool):
             if not redirect_url:
                 raise Exception("Redirect response missing Location header")
 
-            is_valid, error_msg = _validate_url(redirect_url)
+            resolved_url = urljoin(url, redirect_url)
+            is_valid, error_msg = _validate_url(resolved_url)
             if not is_valid:
                 raise Exception(f"Redirect target validation failed: {error_msg}")
 
             return await self._fetch_with_redirect_validation(
-                client, redirect_url, redirect_count + 1
+                client, resolved_url, redirect_count + 1
             )
 
         return r
