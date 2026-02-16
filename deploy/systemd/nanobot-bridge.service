@@ -1,0 +1,50 @@
+[Unit]
+Description=nanobot WhatsApp Bridge (Node.js)
+Documentation=https://github.com/HKUDS/nanobot
+After=network-online.target
+Wants=network-online.target
+
+# The gateway depends on us, not the other way around
+Before=nanobot-gateway.service
+
+[Service]
+Type=simple
+
+# --- CHANGE THESE TO MATCH YOUR SETUP ---
+User=nanobot
+Group=nanobot
+
+# This runs: nanobot channels login
+# which internally does: npm start in the bridge directory
+# Find yours with: which nanobot
+ExecStart=/usr/local/bin/nanobot channels login
+
+# Ensure ~/.nanobot/config.json is found
+Environment=HOME=/home/nanobot
+
+# Node.js needs this to find npm/node
+# Adjust if your node is installed elsewhere (check with: which node)
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+# Restart on crash, but not on clean stop
+Restart=on-failure
+RestartSec=5
+
+# Give up after 5 consecutive failures within 30 seconds
+StartLimitIntervalSec=30
+StartLimitBurst=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+# Bridge needs write access for WhatsApp auth data and bridge build
+ReadWritePaths=/home/nanobot/.nanobot
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nanobot-bridge
+
+[Install]
+WantedBy=multi-user.target

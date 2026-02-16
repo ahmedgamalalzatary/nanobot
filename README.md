@@ -805,10 +805,9 @@ nanobot cron remove <job_id>
 
 ## 🐳 Docker
 
-> [!TIP]
-> The `-v ~/.nanobot:/root/.nanobot` flag mounts your local config directory into the container, so your config and workspace persist across container restarts.
+nanobot supports two Docker deployment modes: **Single container** (quick local usage) and **Docker Compose** (production with WhatsApp support).
 
-Build and run nanobot in a container:
+### Quick Start (Single Container)
 
 ```bash
 # Build the image
@@ -820,13 +819,38 @@ docker run -v ~/.nanobot:/root/.nanobot --rm nanobot onboard
 # Edit config on host to add API keys
 vim ~/.nanobot/config.json
 
-# Run gateway (connects to enabled channels, e.g. Telegram/Discord/Mochat)
+# Run gateway
 docker run -v ~/.nanobot:/root/.nanobot -p 18790:18790 nanobot gateway
 
 # Or run a single command
 docker run -v ~/.nanobot:/root/.nanobot --rm nanobot agent -m "Hello!"
 docker run -v ~/.nanobot:/root/.nanobot --rm nanobot status
 ```
+
+### Production Deployment (Docker Compose)
+
+For production VMs with WhatsApp support, use Docker Compose:
+
+```bash
+# Clone and navigate
+git clone https://github.com/HKUDS/nanobot.git
+cd nanobot
+
+# Build and start gateway only
+docker compose -f deploy/docker-compose.yml up -d
+
+# Initialize config
+docker compose -f deploy/docker-compose.yml run --rm gateway onboard
+
+# Edit config (add API key, enable channels)
+# Then copy config into container and restart
+
+# With WhatsApp (scan QR first)
+docker compose -f deploy/docker-compose.yml run --rm -it bridge channels login
+docker compose -f deploy/docker-compose.yml --profile whatsapp up -d
+```
+
+> **Full deployment guide**: See [docs/docker-deployment.md](docs/docker-deployment.md) for complete VM deployment instructions.
 
 ## 📁 Project Structure
 

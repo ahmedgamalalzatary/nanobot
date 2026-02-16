@@ -1,0 +1,48 @@
+[Unit]
+Description=nanobot AI Assistant Gateway
+Documentation=https://github.com/HKUDS/nanobot
+After=network-online.target
+Wants=network-online.target
+
+# If you use WhatsApp, uncomment the next line so the bridge starts first:
+# Wants=nanobot-bridge.service
+# After=nanobot-bridge.service
+
+[Service]
+Type=simple
+
+# --- CHANGE THESE TO MATCH YOUR SETUP ---
+User=nanobot
+Group=nanobot
+# If nanobot is installed in a virtualenv, use the full path, e.g.:
+#   ExecStart=/home/nanobot/.local/bin/nanobot gateway
+# If installed globally (pip install nanobot-ai):
+#   ExecStart=/usr/local/bin/nanobot gateway
+# Find yours with: which nanobot
+ExecStart=/usr/local/bin/nanobot gateway
+
+# Ensure ~/.nanobot/config.json is found
+Environment=HOME=/home/nanobot
+
+# Restart on crash, but not on clean stop (systemctl stop)
+Restart=on-failure
+RestartSec=5
+
+# Give up after 5 consecutive failures within 30 seconds
+StartLimitIntervalSec=30
+StartLimitBurst=5
+
+# Security hardening (optional but recommended)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+# nanobot needs write access to its data directory
+ReadWritePaths=/home/nanobot/.nanobot
+
+# Logging goes to journalctl automatically
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nanobot-gateway
+
+[Install]
+WantedBy=multi-user.target
