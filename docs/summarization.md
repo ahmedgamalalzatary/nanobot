@@ -12,7 +12,7 @@
 | `pyproject.toml` | Python project config - dependencies, entry points (`nanobot` CLI), build settings |
 | `README.md` | Comprehensive documentation with installation, setup, and channel configuration guides |
 | `Dockerfile` | Docker containerization for deployment |
-| `core_agent_lines.sh` | Script to count core agent lines (~3,668 lines) |
+| `core_agent_lines.sh` / `core_agent_lines.ps1` | Script to count core agent lines (~3,668 lines) |
 | `LICENSE` | MIT License |
 | `SECURITY.md` | Security policy and guidelines |
 | `COMMUNICATION.md` | Community contact info (Feishu, WeChat, Discord) |
