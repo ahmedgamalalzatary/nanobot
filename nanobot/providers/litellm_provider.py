@@ -1,6 +1,8 @@
 """LiteLLM provider implementation for multi-provider support."""
 
+import json
 import os
+from pathlib import Path
 from typing import Any
 
 import json_repair
@@ -102,6 +104,50 @@ class LiteLLMProvider(LLMProvider):
                     kwargs.update(overrides)
                     return
 
+    @staticmethod
+    def _load_modelresponse_template() -> str:
+        """Load optional modelresponse template from ~/.nanobot/config.json."""
+        path = Path.home() / ".nanobot" / "config.json"
+        try:
+            with path.open(encoding="utf-8") as f:
+                data = json.load(f)
+        except (FileNotFoundError, OSError, ValueError, TypeError):
+            return ""
+
+        agents = data.get("agents")
+        if not isinstance(agents, dict):
+            return ""
+
+        defaults = agents.get("defaults")
+        if not isinstance(defaults, dict):
+            return ""
+
+        template = defaults.get("modelresponse")
+        return template if isinstance(template, str) else ""
+
+    def _resolve_provider_label(self, resolved_model: str) -> str:
+        """Resolve provider name for template substitution."""
+        if self._gateway:
+            return self._gateway.name
+        spec = find_by_model(resolved_model)
+        return spec.name if spec else ""
+
+    @staticmethod
+    def _render_modelresponse_template(
+        template: str,
+        *,
+        resolved_model: str,
+        provider: str,
+    ) -> str:
+        """Render supported placeholders in modelresponse template."""
+        short_model = resolved_model.split("/")[-1] if resolved_model else ""
+        return (
+            template.replace("{model}", short_model)
+            .replace("{modelFull}", resolved_model)
+            .replace("{provider}", provider)
+            .replace("{thinkingLevel}", "off")
+        )
+
     async def chat(
         self,
         messages: list[dict[str, Any]],
@@ -156,7 +202,20 @@ class LiteLLMProvider(LLMProvider):
             kwargs["tool_choice"] = "auto"
 
         response = await acompletion(**kwargs)
-        return self._parse_response(response)
+        parsed = self._parse_response(response)
+
+        template = self._load_modelresponse_template().strip()
+        if template and parsed.content and not parsed.has_tool_calls:
+            provider = self._resolve_provider_label(model)
+            prefix = self._render_modelresponse_template(
+                template,
+                resolved_model=model,
+                provider=provider,
+            ).strip()
+            if prefix:
+                parsed.content = f"{prefix}\n\n{parsed.content}"
+
+        return parsed
 
     def _parse_response(self, response: Any) -> LLMResponse:
         """Parse LiteLLM response into our standard format."""
