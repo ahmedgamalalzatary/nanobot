@@ -3,7 +3,6 @@
 import json
 import re
 from pathlib import Path
-from typing import Any
 
 from nanobot.config.schema import Config
 
@@ -24,23 +23,27 @@ def load_config(config_path: Path | None = None) -> Config:
     """
     Load configuration from file or create default.
 
+
     Args:
         config_path: Optional path to config file. Uses default if not provided.
+
 
     Returns:
         Loaded configuration object.
     """
     path = config_path or get_config_path()
 
+
     if path.exists():
         try:
             with open(path) as f:
                 data = json.load(f)
             data = _migrate_config(data)
-            return Config.model_validate(convert_keys(data))
+            return Config.model_validate(data)
         except (json.JSONDecodeError, ValueError) as e:
             print(f"Warning: Failed to load config from {path}: {e}")
             print("Using default configuration.")
+
 
     return Config()
 
@@ -48,6 +51,7 @@ def load_config(config_path: Path | None = None) -> Config:
 def save_config(config: Config, config_path: Path | None = None) -> None:
     """
     Save configuration to file.
+
 
     Args:
         config: Configuration to save.
