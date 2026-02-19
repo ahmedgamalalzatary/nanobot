@@ -25,7 +25,7 @@ Slash commands work everywhere. Gateway detects "/" at the start of a message, c
 | Command | Arguments | Description | Persistence |
 |---------|-----------|-------------|-------------|
 | `/new` | None | Create new session | - |
-| `/reasoning` | `low`, `medium`, `high` | Change reasoning effort | Permanent (config) |
+| `/reasoning` | `off`,`low`, `medium`, `high` | Change reasoning effort | Permanent (config) |
 | `/status` | None | Show current state | - |
 | `/think` | `on`, `off` | Show/hide thinking process after completion | Session |
 | `/commands` | None | List all available commands | - |

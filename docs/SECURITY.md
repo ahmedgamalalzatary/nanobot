@@ -36,6 +36,13 @@ chmod 600 ~/.nanobot/config.json
 
 ### 2. Channel Access Control
 
+> [!WARNING]
+> **Empty `allowFrom` allows ALL users.**
+> If `allowFrom` is not set or is left as an empty list `[]` for an enabled channel,
+> **any user who can reach the bot will be able to interact with it**.
+> Always populate `allowFrom` in production deployments.
+> A startup warning is logged when nanobot detects open channels at launch.
+
 **IMPORTANT**: Always configure `allowFrom` lists for production use.
 
 ```json
@@ -242,7 +249,7 @@ Before deploying nanobot:
 
 - [ ] API keys stored securely (not in code)
 - [ ] Config file permissions set to 0600
-- [ ] `allowFrom` lists configured for all channels
+- [ ] `allowFrom` lists configured for all enabled channels (see [Channel Access Control](#2-channel-access-control) — empty list = open to ALL users)
 - [ ] Running as non-root user
 - [ ] File system permissions properly restricted
 - [ ] Dependencies updated to latest secure versions

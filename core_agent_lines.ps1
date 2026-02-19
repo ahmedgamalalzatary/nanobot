@@ -27,6 +27,10 @@ Write-Output "nanobot core agent line count"
 Write-Output "================================"
 Write-Output ""
 
+# NOTE: each entry is scanned non-recursively (Get-ChildItem -File, no -Recurse).
+# All subdirectories containing .py files must be listed here explicitly
+# (e.g. "agent/tools" alongside "agent") so per-directory totals still sum to
+# the overall total.  If a new nested package is added, add it to this list too.
 $dirs = @("agent", "agent/tools", "bus", "config", "cron", "heartbeat", "session", "utils")
 
 foreach ($dir in $dirs) {

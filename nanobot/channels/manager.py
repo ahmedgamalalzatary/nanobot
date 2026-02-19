@@ -31,6 +31,37 @@ class ChannelManager:
         
         self._init_channels()
     
+    def _warn_open_channels(self) -> None:
+        """Warn when enabled channels have no allowFrom restriction (open to all users).
+
+        An empty allowFrom list means the channel accepts messages from any user.
+        See docs/SECURITY.md § 'Channel Access Control' for details.
+        """
+        _channel_configs: dict[str, object] = {
+            "telegram": self.config.channels.telegram,
+            "whatsapp": self.config.channels.whatsapp,
+            "discord": self.config.channels.discord,
+            "feishu": self.config.channels.feishu,
+            "mochat": self.config.channels.mochat,
+            "dingtalk": self.config.channels.dingtalk,
+            "email": self.config.channels.email,
+            "qq": self.config.channels.qq,
+        }
+        open_channels = [
+            name
+            for name in self.channels  # only channels that are actually enabled
+            if name in _channel_configs
+            and not getattr(_channel_configs[name], "allow_from", None)
+        ]
+        if open_channels:
+            logger.warning(
+                "SECURITY WARNING: The following enabled channels have an empty allowFrom "
+                "list and will accept messages from ANY user: %s. "
+                "Populate allowFrom in your config to restrict access. "
+                "See docs/SECURITY.md § 'Channel Access Control' for details.",
+                ", ".join(open_channels),
+            )
+
     def _init_channels(self) -> None:
         """Initialize channels based on config."""
         
@@ -136,7 +167,10 @@ class ChannelManager:
                 logger.info("QQ channel enabled")
             except ImportError as e:
                 logger.warning(f"QQ channel not available: {e}")
-    
+
+        # Warn about channels with no allowFrom restriction (open access)
+        self._warn_open_channels()
+
     async def _start_channel(self, name: str, channel: BaseChannel) -> None:
         """Start a channel and log any exceptions."""
         try:
